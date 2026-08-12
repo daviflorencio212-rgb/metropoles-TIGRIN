@@ -22,7 +22,6 @@ local isMobile = UserInputService.TouchEnabled
 
 local CONFIG = {
 	Aimbot = false,
-	TeleportKill = false, -- ativa a opção
 	SilentAim = false,
 	ShowFOV = false,
 	FOV = 220,
@@ -43,7 +42,6 @@ local CONFIG = {
 	JumpValue = 60,
 	Fullbright = false,
 	QuitOnDeath = false,
-	local lastKillPlayer = nillocal lastKillPos = nil
 }
 
 local isHoldingAim = false
