@@ -22,6 +22,7 @@ local isMobile = UserInputService.TouchEnabled
 
 local CONFIG = {
 	Aimbot = false,
+	TeleportKill = false, -- ativa a opção
 	SilentAim = false,
 	ShowFOV = false,
 	FOV = 220,
