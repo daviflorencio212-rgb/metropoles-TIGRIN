@@ -43,6 +43,7 @@ local CONFIG = {
 	JumpValue = 60,
 	Fullbright = false,
 	QuitOnDeath = false,
+	local lastKillPlayer = nillocal lastKillPos = nil
 }
 
 local isHoldingAim = false
