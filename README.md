@@ -1,9 +1,6 @@
 --[[
-	TIGRINHO - Ajustado
-	- Team Check
-	- Funções independentes (sem Sistema Ativo)
-	- Ver inventário menor
-	- Aba Player em PT
+	TIGRINHO - Menu estilo novo (preto/laranja)
+	Mesmas opções | só o visual mudou
 ]]
 
 local Players = game:GetService("Players")
@@ -52,31 +49,29 @@ local dragStart, startPos
 local noclipConnection = nil
 local espCache = {}
 
-local espFolder = Instance.new("Folder")
-espFolder.Name = "TigrinhoESP"
-espFolder.Parent = Workspace
-
 local Theme = {
-	Background = Color3.fromRGB(18, 16, 14),
-	Sidebar = Color3.fromRGB(28, 22, 16),
-	Panel = Color3.fromRGB(32, 26, 20),
-	Card = Color3.fromRGB(42, 34, 26),
-	Accent = Color3.fromRGB(255, 145, 40),
-	AccentDark = Color3.fromRGB(220, 110, 20),
-	Text = Color3.fromRGB(250, 245, 235),
-	TextDim = Color3.fromRGB(170, 155, 135),
-	Success = Color3.fromRGB(50, 200, 120),
-	Danger = Color3.fromRGB(220, 70, 70),
+	Bg = Color3.fromRGB(10, 10, 12),
+	Sidebar = Color3.fromRGB(14, 14, 16),
+	Panel = Color3.fromRGB(16, 16, 18),
+	Card = Color3.fromRGB(22, 22, 26),
+	Accent = Color3.fromRGB(255, 140, 30),
+	Accent2 = Color3.fromRGB(255, 170, 50),
+	Text = Color3.fromRGB(240, 240, 245),
+	TextDim = Color3.fromRGB(140, 140, 150),
+	Success = Color3.fromRGB(40, 200, 120),
+	Off = Color3.fromRGB(50, 50, 58),
+	Stroke = Color3.fromRGB(255, 140, 30),
 }
 
+-- ====================== UI ======================
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "Tigrinho"
 screenGui.ResetOnSpawn = false
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
+-- FOV
 local fovCircle = Instance.new("Frame")
-fovCircle.Name = "FOVCircle"
 fovCircle.AnchorPoint = Vector2.new(0.5, 0.5)
 fovCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
 fovCircle.Size = UDim2.new(0, CONFIG.FOV * 2, 0, CONFIG.FOV * 2)
@@ -86,50 +81,80 @@ fovCircle.Parent = screenGui
 Instance.new("UICorner", fovCircle).CornerRadius = UDim.new(1, 0)
 local fovStroke = Instance.new("UIStroke", fovCircle)
 fovStroke.Color = Theme.Accent
-fovStroke.Thickness = 1.4
-fovStroke.Transparency = 0.4
+fovStroke.Thickness = 1.5
+fovStroke.Transparency = 0.35
 
+-- MAIN WINDOW
 local main = Instance.new("Frame")
-main.Size = UDim2.new(0, 520, 0, 500)
-main.Position = UDim2.new(0.5, -260, 0.5, -250)
-main.BackgroundColor3 = Theme.Background
+main.Size = UDim2.new(0, 620, 0, 420)
+main.Position = UDim2.new(0.5, -310, 0.5, -210)
+main.BackgroundColor3 = Theme.Bg
 main.BorderSizePixel = 0
 main.Active = true
 main.Parent = screenGui
-Instance.new("UICorner", main).CornerRadius = UDim.new(0, 18)
-Instance.new("UIStroke", main).Color = Color3.fromRGB(60, 45, 30)
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 16)
 
+local mainStroke = Instance.new("UIStroke", main)
+mainStroke.Color = Theme.Accent
+mainStroke.Thickness = 1.8
+mainStroke.Transparency = 0.15
+
+-- HEADER
+local header = Instance.new("Frame")
+header.Size = UDim2.new(1, 0, 0, 52)
+header.BackgroundColor3 = Theme.Sidebar
+header.BorderSizePixel = 0
+header.Parent = main
+Instance.new("UICorner", header).CornerRadius = UDim.new(0, 16)
+
+local headerFix = Instance.new("Frame")
+headerFix.Size = UDim2.new(1, 0, 0, 20)
+headerFix.Position = UDim2.new(0, 0, 1, -20)
+headerFix.BackgroundColor3 = Theme.Sidebar
+headerFix.BorderSizePixel = 0
+headerFix.Parent = header
+
+local logo = Instance.new("TextLabel")
+logo.Size = UDim2.new(1, -60, 1, 0)
+logo.Position = UDim2.new(0, 16, 0, 0)
+logo.BackgroundTransparency = 1
+logo.Text = "🐯  TIGRINHO"
+logo.TextColor3 = Theme.Accent
+logo.Font = Enum.Font.GothamBlack
+logo.TextSize = 22
+logo.TextXAlignment = Enum.TextXAlignment.Left
+logo.Parent = header
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 32, 0, 32)
+closeBtn.Position = UDim2.new(1, -42, 0.5, -16)
+closeBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = Theme.TextDim
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 14
+closeBtn.Parent = header
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
+
+-- SIDEBAR
 local sidebar = Instance.new("Frame")
-sidebar.Size = UDim2.new(0, 135, 1, 0)
+sidebar.Size = UDim2.new(0, 130, 1, -52)
+sidebar.Position = UDim2.new(0, 0, 0, 52)
 sidebar.BackgroundColor3 = Theme.Sidebar
 sidebar.BorderSizePixel = 0
 sidebar.Parent = main
-Instance.new("UICorner", sidebar).CornerRadius = UDim.new(0, 18)
 
 local sideFix = Instance.new("Frame")
-sideFix.Size = UDim2.new(0, 22, 1, 0)
-sideFix.Position = UDim2.new(1, -22, 0, 0)
+sideFix.Size = UDim2.new(0, 16, 1, 0)
+sideFix.Position = UDim2.new(1, -16, 0, 0)
 sideFix.BackgroundColor3 = Theme.Sidebar
 sideFix.BorderSizePixel = 0
 sideFix.Parent = sidebar
 
-local dragArea = Instance.new("Frame")
-dragArea.Size = UDim2.new(1, 0, 0, 55)
-dragArea.BackgroundTransparency = 1
-dragArea.Parent = sidebar
-
-local logo = Instance.new("TextLabel")
-logo.Size = UDim2.new(1, 0, 1, 0)
-logo.BackgroundTransparency = 1
-logo.Text = "🐯 TIGRINHO"
-logo.TextColor3 = Theme.Accent
-logo.Font = Enum.Font.GothamBlack
-logo.TextSize = 16
-logo.Parent = dragArea
-
+-- CONTENT
 local content = Instance.new("ScrollingFrame")
-content.Size = UDim2.new(1, -145, 1, -20)
-content.Position = UDim2.new(0, 140, 0, 10)
+content.Size = UDim2.new(1, -140, 1, -62)
+content.Position = UDim2.new(0, 135, 0, 56)
 content.BackgroundColor3 = Theme.Panel
 content.BorderSizePixel = 0
 content.ScrollBarThickness = 3
@@ -137,22 +162,14 @@ content.ScrollBarImageColor3 = Theme.Accent
 content.AutomaticCanvasSize = Enum.AutomaticSize.Y
 content.CanvasSize = UDim2.new(0, 0, 0, 0)
 content.Parent = main
-Instance.new("UICorner", content).CornerRadius = UDim.new(0, 14)
-local pad = Instance.new("UIPadding", content)
-pad.PaddingTop = UDim.new(0, 6)
-pad.PaddingBottom = UDim.new(0, 10)
+Instance.new("UICorner", content).CornerRadius = UDim.new(0, 12)
+local cPad = Instance.new("UIPadding", content)
+cPad.PaddingTop = UDim.new(0, 8)
+cPad.PaddingBottom = UDim.new(0, 12)
+cPad.PaddingLeft = UDim.new(0, 6)
+cPad.PaddingRight = UDim.new(0, 6)
 
-local miniBtn = Instance.new("TextButton")
-miniBtn.Size = UDim2.new(0, 28, 0, 28)
-miniBtn.Position = UDim2.new(1, -38, 0, 10)
-miniBtn.BackgroundColor3 = Theme.AccentDark
-miniBtn.Text = "–"
-miniBtn.TextColor3 = Color3.new(1,1,1)
-miniBtn.Font = Enum.Font.GothamBold
-miniBtn.TextSize = 16
-miniBtn.Parent = main
-Instance.new("UICorner", miniBtn).CornerRadius = UDim.new(0, 9)
-
+-- OPEN BTN
 local openBtn = Instance.new("TextButton")
 openBtn.Size = UDim2.new(0, 48, 0, 48)
 openBtn.Position = UDim2.new(0, 16, 0.5, -24)
@@ -163,7 +180,7 @@ openBtn.Visible = false
 openBtn.Parent = screenGui
 Instance.new("UICorner", openBtn).CornerRadius = UDim.new(1, 0)
 
--- Botão flutuante Revistar (mantido fora do combate)
+-- FLOAT REVISTAR
 local revistarBtn = Instance.new("TextButton")
 revistarBtn.Size = UDim2.new(0, 115, 0, 34)
 revistarBtn.Position = UDim2.new(0, 12, 0, 12)
@@ -173,7 +190,7 @@ revistarBtn.TextColor3 = Color3.new(1,1,1)
 revistarBtn.Font = Enum.Font.GothamBold
 revistarBtn.TextSize = 12
 revistarBtn.Parent = screenGui
-Instance.new("UICorner", revistarBtn).CornerRadius = UDim.new(0, 11)
+Instance.new("UICorner", revistarBtn).CornerRadius = UDim.new(0, 10)
 
 local draggingRev, dragStartRev, startPosRev = false, nil, nil
 revistarBtn.InputBegan:Connect(function(input)
@@ -190,35 +207,35 @@ UserInputService.InputChanged:Connect(function(input)
 	end
 end)
 UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		draggingRev = false
-	end
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then draggingRev = false end
 end)
 
--- ====================== HELPERS ======================
+-- ====================== TABS ======================
 local tabButtons = {}
 local function createTabButton(name, icon, order)
 	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(1, -16, 0, 36)
-	btn.Position = UDim2.new(0, 8, 0, 65 + (order-1)*44)
+	btn.Size = UDim2.new(1, -16, 0, 40)
+	btn.Position = UDim2.new(0, 8, 0, 12 + (order-1)*48)
+	btn.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
 	btn.BackgroundTransparency = 1
 	btn.Text = ""
 	btn.Parent = sidebar
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
 
 	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(1, -6, 1, 0)
-	label.Position = UDim2.new(0, 8, 0, 0)
+	label.Size = UDim2.new(1, -10, 1, 0)
+	label.Position = UDim2.new(0, 10, 0, 0)
 	label.BackgroundTransparency = 1
 	label.Text = icon .. "  " .. name
 	label.TextColor3 = Theme.TextDim
-	label.Font = Enum.Font.GothamMedium
+	label.Font = Enum.Font.GothamBold
 	label.TextSize = 12
 	label.TextXAlignment = Enum.TextXAlignment.Left
 	label.Parent = btn
 
 	local ind = Instance.new("Frame")
-	ind.Size = UDim2.new(0, 3, 0, 18)
-	ind.Position = UDim2.new(0, 0, 0.5, -9)
+	ind.Size = UDim2.new(0, 3, 0, 22)
+	ind.Position = UDim2.new(0, 0, 0.5, -11)
 	ind.BackgroundColor3 = Theme.Accent
 	ind.Visible = false
 	ind.Parent = btn
@@ -227,19 +244,20 @@ local function createTabButton(name, icon, order)
 	tabButtons[name] = {Button = btn, Label = label, Indicator = ind}
 end
 
-createTabButton("Combate", "⚔", 1)
-createTabButton("Visual", "👁", 2)
-createTabButton("Player", "🏃", 3)
-createTabButton("Configs", "⚙", 4)
+createTabButton("COMBATE", "⚔", 1)
+createTabButton("ESP", "👁", 2)
+createTabButton("PLAYER", "🏃", 3)
+createTabButton("CONFIG", "⚙", 4)
 
+-- ====================== UI HELPERS ======================
 local function createSection(parent, text, y)
 	local l = Instance.new("TextLabel")
-	l.Size = UDim2.new(1, -20, 0, 18)
-	l.Position = UDim2.new(0, 10, 0, y)
+	l.Size = UDim2.new(1, -16, 0, 18)
+	l.Position = UDim2.new(0, 8, 0, y)
 	l.BackgroundTransparency = 1
 	l.Text = text
 	l.TextColor3 = Theme.Accent
-	l.Font = Enum.Font.GothamBold
+	l.Font = Enum.Font.GothamBlack
 	l.TextSize = 11
 	l.TextXAlignment = Enum.TextXAlignment.Left
 	l.Parent = parent
@@ -248,16 +266,16 @@ end
 
 local function createToggle(parent, text, y, default, callback)
 	local frame = Instance.new("Frame")
-	frame.Size = UDim2.new(1, -20, 0, 32)
-	frame.Position = UDim2.new(0, 10, 0, y)
+	frame.Size = UDim2.new(1, -16, 0, 34)
+	frame.Position = UDim2.new(0, 8, 0, y)
 	frame.BackgroundColor3 = Theme.Card
 	frame.BorderSizePixel = 0
 	frame.Parent = parent
 	Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
 
 	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(1, -55, 1, 0)
-	label.Position = UDim2.new(0, 10, 0, 0)
+	label.Size = UDim2.new(1, -58, 1, 0)
+	label.Position = UDim2.new(0, 12, 0, 0)
 	label.BackgroundTransparency = 1
 	label.Text = text
 	label.TextColor3 = Theme.Text
@@ -267,16 +285,16 @@ local function createToggle(parent, text, y, default, callback)
 	label.Parent = frame
 
 	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(0, 38, 0, 18)
-	btn.Position = UDim2.new(1, -46, 0.5, -9)
-	btn.BackgroundColor3 = default and Theme.Success or Theme.Danger
+	btn.Size = UDim2.new(0, 42, 0, 22)
+	btn.Position = UDim2.new(1, -50, 0.5, -11)
+	btn.BackgroundColor3 = default and Theme.Accent or Theme.Off
 	btn.Text = ""
 	btn.Parent = frame
 	Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
 
 	local circle = Instance.new("Frame")
-	circle.Size = UDim2.new(0, 12, 0, 12)
-	circle.Position = default and UDim2.new(1, -15, 0.5, -6) or UDim2.new(0, 3, 0.5, -6)
+	circle.Size = UDim2.new(0, 16, 0, 16)
+	circle.Position = default and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)
 	circle.BackgroundColor3 = Color3.new(1,1,1)
 	circle.BorderSizePixel = 0
 	circle.Parent = btn
@@ -285,25 +303,25 @@ local function createToggle(parent, text, y, default, callback)
 	local state = default
 	btn.MouseButton1Click:Connect(function()
 		state = not state
-		TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = state and Theme.Success or Theme.Danger}):Play()
-		TweenService:Create(circle, TweenInfo.new(0.15), {Position = state and UDim2.new(1, -15, 0.5, -6) or UDim2.new(0, 3, 0.5, -6)}):Play()
+		TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = state and Theme.Accent or Theme.Off}):Play()
+		TweenService:Create(circle, TweenInfo.new(0.15), {Position = state and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)}):Play()
 		callback(state)
 	end)
-	return y + 38
+	return y + 40
 end
 
 local function createSlider(parent, text, y, default, min, max, callback)
 	local frame = Instance.new("Frame")
-	frame.Size = UDim2.new(1, -20, 0, 46)
-	frame.Position = UDim2.new(0, 10, 0, y)
+	frame.Size = UDim2.new(1, -16, 0, 48)
+	frame.Position = UDim2.new(0, 8, 0, y)
 	frame.BackgroundColor3 = Theme.Card
 	frame.BorderSizePixel = 0
 	frame.Parent = parent
 	Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
 
 	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(0.6, 0, 0, 15)
-	label.Position = UDim2.new(0, 10, 0, 5)
+	label.Size = UDim2.new(0.6, 0, 0, 16)
+	label.Position = UDim2.new(0, 12, 0, 6)
 	label.BackgroundTransparency = 1
 	label.Text = text
 	label.TextColor3 = Theme.Text
@@ -313,8 +331,8 @@ local function createSlider(parent, text, y, default, min, max, callback)
 	label.Parent = frame
 
 	local valueLabel = Instance.new("TextLabel")
-	valueLabel.Size = UDim2.new(0.35, -10, 0, 15)
-	valueLabel.Position = UDim2.new(0.65, 0, 0, 5)
+	valueLabel.Size = UDim2.new(0.35, -12, 0, 16)
+	valueLabel.Position = UDim2.new(0.65, 0, 0, 6)
 	valueLabel.BackgroundTransparency = 1
 	valueLabel.Text = tostring(default)
 	valueLabel.TextColor3 = Theme.Accent
@@ -324,9 +342,9 @@ local function createSlider(parent, text, y, default, min, max, callback)
 	valueLabel.Parent = frame
 
 	local barBg = Instance.new("Frame")
-	barBg.Size = UDim2.new(1, -20, 0, 5)
-	barBg.Position = UDim2.new(0, 10, 0, 28)
-	barBg.BackgroundColor3 = Color3.fromRGB(55, 45, 35)
+	barBg.Size = UDim2.new(1, -24, 0, 6)
+	barBg.Position = UDim2.new(0, 12, 0, 30)
+	barBg.BackgroundColor3 = Color3.fromRGB(40, 40, 48)
 	barBg.BorderSizePixel = 0
 	barBg.Parent = frame
 	Instance.new("UICorner", barBg).CornerRadius = UDim.new(1, 0)
@@ -354,18 +372,14 @@ local function createSlider(parent, text, y, default, min, max, callback)
 			callback(value)
 		end
 	end)
-	return y + 52
+	return y + 54
 end
 
--- ====================== FUNÇÕES ======================
+-- ====================== LÓGICA (igual antes) ======================
 local function sameTeam(plr)
 	if not CONFIG.TeamCheck then return false end
-	if LocalPlayer.Team and plr.Team then
-		return LocalPlayer.Team == plr.Team
-	end
-	if LocalPlayer.TeamColor and plr.TeamColor then
-		return LocalPlayer.TeamColor == plr.TeamColor
-	end
+	if LocalPlayer.Team and plr.Team then return LocalPlayer.Team == plr.Team end
+	if LocalPlayer.TeamColor and plr.TeamColor then return LocalPlayer.TeamColor == plr.TeamColor end
 	return false
 end
 
@@ -374,8 +388,7 @@ local function isValid(char)
 	local hum = char:FindFirstChildOfClass("Humanoid")
 	if not hum or hum.Health <= 0 then return false end
 	local plr = Players:GetPlayerFromCharacter(char)
-	if not plr then return false end
-	if sameTeam(plr) then return false end
+	if not plr or sameTeam(plr) then return false end
 	return true
 end
 
@@ -390,8 +403,7 @@ end
 local function getScreenDist(pos)
 	local sp, onScreen = Camera:WorldToViewportPoint(pos)
 	if not onScreen or sp.Z < 0 then return math.huge end
-	local c = Camera.ViewportSize / 2
-	return (Vector2.new(sp.X, sp.Y) - c).Magnitude
+	return (Vector2.new(sp.X, sp.Y) - Camera.ViewportSize/2).Magnitude
 end
 
 local function getPlayerDentroDoFOV(aceitarMorto)
@@ -407,10 +419,7 @@ local function getPlayerDentroDoFOV(aceitarMorto)
 				local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
 				if onScreen and pos.Z > 0 then
 					local dist = (Vector2.new(pos.X, pos.Y) - centro).Magnitude
-					if dist < menor then
-						menor = dist
-						melhor = plr
-					end
+					if dist < menor then menor = dist melhor = plr end
 				end
 			end
 		end
@@ -425,15 +434,14 @@ local function fazerRevistar()
 		return
 	end
 	local nome = target.Name
-	local cmd = "/revistar " .. nome
 	pcall(function()
 		local channels = TextChatService:FindFirstChild("TextChannels")
 		if channels then
-			local general = channels:FindFirstChild("RBXGeneral") or channels:FindFirstChild("General")
-			if general then general:SendAsync(cmd) end
+			local g = channels:FindFirstChild("RBXGeneral") or channels:FindFirstChild("General")
+			if g then g:SendAsync("/revistar " .. nome) end
 		end
 	end)
-	pcall(function() LocalPlayer:Chat(cmd) end)
+	pcall(function() LocalPlayer:Chat("/revistar " .. nome) end)
 	local remote
 	pcall(function() remote = ReplicatedStorage.shared.Eventos.revisar_function end)
 	if remote and remote:IsA("RemoteFunction") then
@@ -444,7 +452,6 @@ local function fazerRevistar()
 	end
 	StarterGui:SetCore("SendNotification", {Title = "Tigrinho", Text = "Revistando: " .. nome, Duration = 3})
 end
-
 revistarBtn.MouseButton1Click:Connect(fazerRevistar)
 
 local function setNoclip(state)
@@ -479,14 +486,13 @@ local function setFullbright(state)
 		Lighting.ClockTime = 14
 		Lighting.FogEnd = 100000
 		Lighting.GlobalShadows = false
-		Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
+		Lighting.OutdoorAmbient = Color3.fromRGB(128,128,128)
 	else
 		Lighting.Brightness = 1
 		Lighting.GlobalShadows = true
 	end
 end
 
--- ESP sem piscar + inventário pequeno
 local function clearESPForPlayer(userId)
 	if espCache[userId] then
 		for _, obj in pairs(espCache[userId]) do
@@ -508,12 +514,8 @@ local function updatePlayerESP(plr)
 	local head = char:FindFirstChild("Head")
 	local meuRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 	if not root or not hum or not meuRoot then clearESPForPlayer(plr.UserId) return end
-
 	local dist = (root.Position - meuRoot.Position).Magnitude
-	if dist > CONFIG.ESPMaxDistance or not CONFIG.ShowESP then
-		clearESPForPlayer(plr.UserId)
-		return
-	end
+	if dist > CONFIG.ESPMaxDistance or not CONFIG.ShowESP then clearESPForPlayer(plr.UserId) return end
 
 	if not espCache[plr.UserId] then espCache[plr.UserId] = {} end
 	local cache = espCache[plr.UserId]
@@ -532,10 +534,7 @@ local function updatePlayerESP(plr)
 			cache.hl.FillColor = CONFIG.ESPColor
 			cache.hl.Adornee = char
 		end
-	elseif cache.hl then
-		cache.hl:Destroy()
-		cache.hl = nil
-	end
+	elseif cache.hl then cache.hl:Destroy() cache.hl = nil end
 
 	if (CONFIG.ShowName or CONFIG.ShowDistance or CONFIG.ShowTool) and hum.Health > 0 and head and not sameTeam(plr) then
 		if not cache.info or not cache.info.Parent then
@@ -546,7 +545,7 @@ local function updatePlayerESP(plr)
 			bb.AlwaysOnTop = true
 			bb.Parent = Workspace
 			local label = Instance.new("TextLabel")
-			label.Size = UDim2.new(1, 0, 1, 0)
+			label.Size = UDim2.new(1,0,1,0)
 			label.BackgroundTransparency = 1
 			label.Font = Enum.Font.GothamBold
 			label.TextSize = 11
@@ -560,38 +559,33 @@ local function updatePlayerESP(plr)
 		if CONFIG.ShowDistance then text = text .. math.floor(dist) .. "m\n" end
 		if CONFIG.ShowTool then
 			local tool = char:FindFirstChildOfClass("Tool")
-			text = text .. (tool and ("[" .. tool.Name .. "]") or "")
+			text = text .. (tool and ("["..tool.Name.."]") or "")
 		end
 		cache.infoLabel.Text = text
 		cache.infoLabel.TextColor3 = CONFIG.ESPColor
 		cache.info.Adornee = head
-	elseif cache.info then
-		cache.info:Destroy()
-		cache.info = nil
-		cache.infoLabel = nil
-	end
+	elseif cache.info then cache.info:Destroy() cache.info = nil cache.infoLabel = nil end
 
-	-- Ver inventário (menor)
 	if CONFIG.ShowInventory then
 		if not cache.inv or not cache.inv.Parent then
 			local bb = Instance.new("BillboardGui")
 			bb.Adornee = root
-			bb.Size = UDim2.new(0, 100, 0, 36)
+			bb.Size = UDim2.new(0, 100, 0, 32)
 			bb.StudsOffset = Vector3.new(0, -2.8, 0)
 			bb.AlwaysOnTop = true
 			bb.Parent = Workspace
 			local frame = Instance.new("Frame")
-			frame.Size = UDim2.new(1, 0, 1, 0)
-			frame.BackgroundColor3 = Color3.fromRGB(12, 10, 8)
+			frame.Size = UDim2.new(1,0,1,0)
+			frame.BackgroundColor3 = Color3.fromRGB(12,10,8)
 			frame.BackgroundTransparency = 0.35
 			frame.BorderSizePixel = 0
 			frame.Parent = bb
 			Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
 			local list = Instance.new("TextLabel")
-			list.Size = UDim2.new(1, -4, 1, -2)
-			list.Position = UDim2.new(0, 2, 0, 1)
+			list.Size = UDim2.new(1,-4,1,-2)
+			list.Position = UDim2.new(0,2,0,1)
 			list.BackgroundTransparency = 1
-			list.TextColor3 = Color3.fromRGB(220, 220, 220)
+			list.TextColor3 = Color3.fromRGB(220,220,220)
 			list.Font = Enum.Font.Gotham
 			list.TextSize = 9
 			list.TextXAlignment = Enum.TextXAlignment.Left
@@ -614,14 +608,10 @@ local function updatePlayerESP(plr)
 		end
 		cache.invList.Text = #items > 0 and table.concat(items, " · ") or "—"
 		cache.inv.Adornee = root
-	elseif cache.inv then
-		cache.inv:Destroy()
-		cache.inv = nil
-		cache.invList = nil
-	end
+	elseif cache.inv then cache.inv:Destroy() cache.inv = nil cache.invList = nil end
 end
 
--- ====================== ABAS ======================
+-- ====================== CONTEÚDO DAS ABAS ======================
 local function clearContent()
 	for _, c in ipairs(content:GetChildren()) do
 		if not c:IsA("UICorner") and not c:IsA("UIPadding") then c:Destroy() end
@@ -633,19 +623,20 @@ local function openTab(name)
 	for n, d in pairs(tabButtons) do
 		d.Label.TextColor3 = (n == name) and Theme.Text or Theme.TextDim
 		d.Indicator.Visible = (n == name)
+		d.Button.BackgroundTransparency = (n == name) and 0.3 or 1
 	end
-	local y = 4
 
-	if name == "Combate" then
+	local y = 4
+	if name == "COMBATE" then
 		y = createSection(content, "AIMBOT", y)
 		y = createToggle(content, "Aimbot Ativo", y, CONFIG.Aimbot, function(v) CONFIG.Aimbot = v end)
 		y = createToggle(content, "Silent Aim (cabeça)", y, CONFIG.SilentAim, function(v) CONFIG.SilentAim = v end)
 		y = createToggle(content, "Mostrar FOV", y, CONFIG.ShowFOV, function(v) CONFIG.ShowFOV = v fovCircle.Visible = v end)
 		y = createSlider(content, "Tamanho FOV", y, CONFIG.FOV, 50, 600, function(v) CONFIG.FOV = v fovCircle.Size = UDim2.new(0, v*2, 0, v*2) end)
 		y = createSlider(content, "Suavidade", y, math.floor(CONFIG.Smoothness*100), 1, 40, function(v) CONFIG.Smoothness = v/100 end)
-		y = createToggle(content, "Team Check (não atira no time)", y, CONFIG.TeamCheck, function(v) CONFIG.TeamCheck = v end)
+		y = createToggle(content, "Team Check", y, CONFIG.TeamCheck, function(v) CONFIG.TeamCheck = v end)
 
-	elseif name == "Visual" then
+	elseif name == "ESP" then
 		y = createSection(content, "ESP", y)
 		y = createToggle(content, "ESP Ativo", y, CONFIG.ShowESP, function(v) CONFIG.ShowESP = v if not v then clearAllESP() end end)
 		y = createSlider(content, "Distância ESP", y, CONFIG.ESPMaxDistance, 50, 2000, function(v) CONFIG.ESPMaxDistance = v end)
@@ -654,11 +645,10 @@ local function openTab(name)
 		y = createToggle(content, "Distância", y, CONFIG.ShowDistance, function(v) CONFIG.ShowDistance = v end)
 		y = createToggle(content, "Item na mão", y, CONFIG.ShowTool, function(v) CONFIG.ShowTool = v end)
 		y = createToggle(content, "Ver inventário", y, CONFIG.ShowInventory, function(v) CONFIG.ShowInventory = v end)
-
 		y = createSection(content, "COR", y + 2)
 		local colorFrame = Instance.new("Frame")
-		colorFrame.Size = UDim2.new(1, -20, 0, 28)
-		colorFrame.Position = UDim2.new(0, 10, 0, y)
+		colorFrame.Size = UDim2.new(1, -16, 0, 28)
+		colorFrame.Position = UDim2.new(0, 8, 0, y)
 		colorFrame.BackgroundTransparency = 1
 		colorFrame.Parent = content
 		local list = Instance.new("UIListLayout")
@@ -679,24 +669,24 @@ local function openTab(name)
 			b.MouseButton1Click:Connect(function() CONFIG.ESPColor = cor end)
 		end
 
-	elseif name == "Player" then
+	elseif name == "PLAYER" then
 		y = createSection(content, "MOVIMENTO", y)
 		y = createToggle(content, "Noclip", y, CONFIG.Noclip, function(v) CONFIG.Noclip = v setNoclip(v) end)
 		y = createToggle(content, "Velocidade", y, CONFIG.Speed, function(v) CONFIG.Speed = v applySpeedJump() end)
-		y = createSlider(content, "Valor da velocidade", y, CONFIG.SpeedValue, 16, 100, function(v) CONFIG.SpeedValue = v applySpeedJump() end)
+		y = createSlider(content, "Valor velocidade", y, CONFIG.SpeedValue, 16, 100, function(v) CONFIG.SpeedValue = v applySpeedJump() end)
 		y = createToggle(content, "Pulo alto", y, CONFIG.Jump, function(v) CONFIG.Jump = v applySpeedJump() end)
-		y = createSlider(content, "Valor do pulo", y, CONFIG.JumpValue, 50, 200, function(v) CONFIG.JumpValue = v applySpeedJump() end)
+		y = createSlider(content, "Valor pulo", y, CONFIG.JumpValue, 50, 200, function(v) CONFIG.JumpValue = v applySpeedJump() end)
 		y = createSection(content, "MUNDO", y + 2)
 		y = createToggle(content, "Claridade total", y, CONFIG.Fullbright, function(v) CONFIG.Fullbright = v setFullbright(v) end)
 
-	elseif name == "Configs" then
+	elseif name == "CONFIG" then
 		y = createSection(content, "OUTROS", y)
 		y = createToggle(content, "Sair ao morrer", y, CONFIG.QuitOnDeath, function(v) CONFIG.QuitOnDeath = v end)
 		local info = Instance.new("TextLabel")
-		info.Size = UDim2.new(1, -20, 0, 60)
-		info.Position = UDim2.new(0, 10, 0, y + 6)
+		info.Size = UDim2.new(1, -16, 0, 50)
+		info.Position = UDim2.new(0, 8, 0, y + 6)
 		info.BackgroundTransparency = 1
-		info.Text = "Right Shift = menu\n– = minimizar\nCada opção ativa ao clicar"
+		info.Text = "Right Shift = abrir/fechar\nCada opção ativa ao clicar"
 		info.TextColor3 = Theme.TextDim
 		info.Font = Enum.Font.Gotham
 		info.TextSize = 11
@@ -708,10 +698,10 @@ end
 for n, d in pairs(tabButtons) do
 	d.Button.MouseButton1Click:Connect(function() openTab(n) end)
 end
-openTab("Combate")
+openTab("COMBATE")
 
--- Arrastar / minimizar
-dragArea.InputBegan:Connect(function(input)
+-- Drag header
+header.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 		dragging = true
 		dragStart = input.Position
@@ -733,7 +723,7 @@ local function setMenuVisible(v)
 	main.Visible = v
 	openBtn.Visible = not v
 end
-miniBtn.MouseButton1Click:Connect(function() setMenuVisible(false) end)
+closeBtn.MouseButton1Click:Connect(function() setMenuVisible(false) end)
 openBtn.MouseButton1Click:Connect(function() setMenuVisible(true) end)
 UserInputService.InputBegan:Connect(function(input, gp)
 	if gp then return end
@@ -751,10 +741,7 @@ local function findTarget()
 				local d3 = (part.Position - root.Position).Magnitude
 				if d3 <= CONFIG.MaxDistance then
 					local sd = getScreenDist(part.Position)
-					if sd < bestDist then
-						bestDist = sd
-						best = part
-					end
+					if sd < bestDist then bestDist = sd best = part end
 				end
 			end
 		end
@@ -791,7 +778,6 @@ end)
 local lastESP = 0
 RunService.RenderStepped:Connect(function()
 	fovCircle.Visible = CONFIG.ShowFOV
-
 	if tick() - lastESP > 0.3 then
 		lastESP = tick()
 		if CONFIG.ShowESP then
@@ -809,11 +795,10 @@ RunService.RenderStepped:Connect(function()
 			clearAllESP()
 		end
 	end
-
 	if (CONFIG.Aimbot or CONFIG.SilentAim) and isHoldingAim then
 		local t = findTarget()
 		if t then aim(t) end
 	end
 end)
 
-print("[Tigrinho] Ajustado | Team Check | Funções independentes")
+print("[Tigrinho] Menu estilo novo | mesmas opções")
