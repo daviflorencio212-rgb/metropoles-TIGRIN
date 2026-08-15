@@ -1,4 +1,4 @@
-Usa esse menu q vc me mandou --[[ TIGRINHO - loot UI real + TP seguro (anti ban) ]]
+ --[[ TIGRINHO - loot UI real + TP seguro (anti ban) ]]
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
