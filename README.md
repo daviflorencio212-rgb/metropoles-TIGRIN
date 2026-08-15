@@ -1,3 +1,11 @@
+--[[
+	TIGRINHO - Refeito
+	- Silent Aim sem FOV (cabeça)
+	- Sem "aimbot sempre"
+	- Botão Revistar mais baixo
+	- Português + Mobile
+]]
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -105,7 +113,7 @@ local logo = Instance.new("TextLabel")
 logo.Size = UDim2.new(1, -50, 1, 0)
 logo.Position = UDim2.new(0, 14, 0, 0)
 logo.BackgroundTransparency = 1
-logo.Text = "TIGRINHO - PC"
+logo.Text = "🐯 TIGRINHO"
 logo.TextColor3 = Theme.Accent
 logo.Font = Enum.Font.GothamBlack
 logo.TextSize = isMobile and 18 or 20
@@ -116,7 +124,7 @@ local closeBtn = Instance.new("TextButton")
 closeBtn.Size = UDim2.new(0, 36, 0, 36)
 closeBtn.Position = UDim2.new(1, -44, 0.5, -18)
 closeBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-closeBtn.Text = "X"
+closeBtn.Text = "✕"
 closeBtn.TextColor3 = Theme.TextDim
 closeBtn.Font = Enum.Font.GothamBold
 closeBtn.TextSize = 16
@@ -162,7 +170,7 @@ local openBtn = Instance.new("TextButton")
 openBtn.Size = UDim2.new(0, isMobile and 56 or 48, 0, isMobile and 56 or 48)
 openBtn.Position = UDim2.new(0, 12, 0.55, 0)
 openBtn.BackgroundColor3 = Theme.Accent
-openBtn.Text = "TG"
+openBtn.Text = "🐯"
 openBtn.TextSize = isMobile and 26 or 22
 openBtn.Visible = false
 openBtn.Parent = screenGui
@@ -173,7 +181,7 @@ local revistarBtn = Instance.new("TextButton")
 revistarBtn.Size = UDim2.new(0, isMobile and 140 or 125, 0, isMobile and 44 or 38)
 revistarBtn.Position = UDim2.new(0, 14, 0, isMobile and 110 or 90)
 revistarBtn.BackgroundColor3 = Theme.Accent
-revistarBtn.Text = "REVISTAR"
+revistarBtn.Text = "🐯 REVISTAR"
 revistarBtn.TextColor3 = Color3.new(1,1,1)
 revistarBtn.Font = Enum.Font.GothamBold
 revistarBtn.TextSize = isMobile and 14 or 13
@@ -227,10 +235,10 @@ local function createTabButton(name, icon, order)
 	end
 end
 
-createTabButton("COMBATE", "", 1)
-createTabButton("ESP", "", 2)
-createTabButton("PLAYER", "", 3)
-createTabButton("CONFIG", "", 4)
+createTabButton("COMBATE", "⚔", 1)
+createTabButton("ESP", "👁", 2)
+createTabButton("PLAYER", "🏃", 3)
+createTabButton("CONFIG", "⚙", 4)
 
 local function createSection(parent, text, y)
 	local l = Instance.new("TextLabel")
