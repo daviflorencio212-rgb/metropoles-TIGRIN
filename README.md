@@ -1,4 +1,4 @@
---[[ TIGRINHO - loot server (sem confiar em clone) + ESP 3 armas ]]
+--[[ TIGRINHO - loot UI real + TP seguro (anti ban) ]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -19,22 +19,14 @@ local SENHA = "tigrinho"
 
 local ARMAS = {
 	"UMP45","FAL","M9 Beretta","Desert Eagle","Revolver","G17","Draco",
-	"g18","G18","tec9","Tec9","shorty","Shorty","aa-12","AA-12","spas-12","SPAS-12",
-	"ar15","AR15","AR-15","mp7","MP7","famas","FAMAS","p90","P90","mac-10","MAC-10",
-	"m4","M4","scar","SCAR","thompson","thompsom","Thompson","ak47","AK47","AK-47",
-	"ak47-m","AK47-M","awm","AWM","ak-urso","AK-Urso","AK Urso",
+	"g18","tec9","shorty","aa-12","spas-12","ar15","mp7","famas","p90",
+	"mac-10","m4","scar","thompson","ak47","ak47-m","awm","ak-urso",
 }
 
 local function isArmaName(name)
 	local low = string.lower(tostring(name or ""))
 	for _, a in ipairs(ARMAS) do
 		if string.find(low, string.lower(a), 1, true) then return true end
-	end
-	-- fallback: nomes tipicos de arma
-	if string.find(low, "ak") or string.find(low, "m4") or string.find(low, "glock")
-		or string.find(low, "rifle") or string.find(low, "pistol") or string.find(low, "shotgun")
-		or string.find(low, "smg") or string.find(low, "sniper") then
-		return true
 	end
 	return false
 end
@@ -49,6 +41,9 @@ local CFG = {
 	Fullbright = false, TPKill = false,
 	InfAmmo = false, InfJump = false, InfStamina = false,
 	AntiAFK = false, XRay = false, TriggerBot = false, StickyAim = false,
+	-- anti ban
+	KillCooldown = 12, -- segundos min entre TP+loot automatico
+	SoftTP = true,     -- TP leve (1 vez), sem BodyPosition spam
 }
 
 local CONFIG_FILE = "TigrinhoConfig.json"
@@ -70,7 +65,7 @@ local drag, d0, p0 = false, nil, nil
 local nConn, flyBV, espCache = nil, nil, {}
 local looting, lootLockUntil = false, 0
 local myVictim, myVictimAt = nil, 0
-local tpBP = nil
+local lastKillLoot = 0
 
 local C = {
 	Bg = Color3.fromRGB(16,15,14), Side = Color3.fromRGB(22,20,18),
@@ -80,7 +75,7 @@ local C = {
 }
 
 local function notify(t)
-	pcall(function() StarterGui:SetCore("SendNotification",{Title="Tigrinho",Text=t,Duration=3}) end)
+	pcall(function() StarterGui:SetCore("SendNotification",{Title="Tigrinho",Text=t,Duration=2.5}) end)
 end
 local function markVictim(p)
 	if p and p ~= LP then myVictim = p myVictimAt = tick() end
@@ -94,7 +89,7 @@ pcall(function()
 	end
 end)
 
--- ===== SENHA =====
+-- SENHA
 local lockGui = Instance.new("ScreenGui")
 lockGui.Name = "TigrinhoLock"
 lockGui.ResetOnSpawn = false
@@ -493,37 +488,17 @@ local function rowButton(parent, text, y, cb)
 	return y + 40
 end
 
--- ===== TP =====
-local function clearTPHold()
-	if tpBP then pcall(function() tpBP:Destroy() end) tpBP = nil end
-end
-
-local function lockTP(pos, segundos)
-	segundos = segundos or 4
-	clearTPHold()
+-- ===== TP LEVE (anti ban) =====
+-- 1 CFrame so. SEM BodyPosition, SEM loop Heartbeat, SEM PlatformStand
+local function softTP(pos)
 	local root = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
 	if not root then return end
+	-- se ja esta perto (<12 studs), nao TP (menos flag)
+	if (root.Position - pos).Magnitude < 12 then
+		return
+	end
 	root.CFrame = CFrame.new(pos)
 	root.AssemblyLinearVelocity = Vector3.zero
-	local bp = Instance.new("BodyPosition")
-	bp.Name = "TigTP"
-	bp.MaxForce = Vector3.new(1e6,1e6,1e6)
-	bp.P = 30000
-	bp.D = 2000
-	bp.Position = pos
-	bp.Parent = root
-	tpBP = bp
-	local t0 = tick()
-	local conn
-	conn = RunService.Heartbeat:Connect(function()
-		if tick()-t0 > segundos then conn:Disconnect() clearTPHold() return end
-		local r = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-		if r then
-			r.CFrame = CFrame.new(pos)
-			r.AssemblyLinearVelocity = Vector3.zero
-			if tpBP and tpBP.Parent then tpBP.Position = pos end
-		end
-	end)
 end
 
 local function tpParaNome(nome)
@@ -543,7 +518,7 @@ local function tpParaNome(nome)
 	if not alvo or not alvo.Character then notify("Nao encontrado") return end
 	local r = alvo.Character:FindFirstChild("HumanoidRootPart") or alvo.Character:FindFirstChild("Head")
 	if not r then return end
-	lockTP(r.Position + Vector3.new(0,3,0), 5)
+	softTP(r.Position + Vector3.new(0,3,0))
 	notify("TP → "..alvo.Name)
 end
 
@@ -631,9 +606,9 @@ local function clickGui(obj)
 			if s.X > 2 and s.Y > 2 then
 				local x,y = a.X+s.X/2, a.Y+s.Y/2
 				VIM:SendMouseMoveEvent(x,y,game)
-				task.wait(0.015)
+				task.wait(0.02)
 				VIM:SendMouseButtonEvent(x,y,0,true,game,1)
-				task.wait(0.035)
+				task.wait(0.04)
 				VIM:SendMouseButtonEvent(x,y,0,false,game,1)
 			end
 		end
@@ -661,61 +636,69 @@ local function getWindow()
 	return w
 end
 
--- so ARMAS (ate 3 no ESP)
 local function listArmas(plr)
-	local t, s = {}, {}
+	local t,s = {},{}
 	local function add(n)
-		if n and isArmaName(n) and not s[n] then
-			s[n] = true
-			table.insert(t, n)
-		end
+		if n and isArmaName(n) and not s[n] then s[n]=true table.insert(t,n) end
 	end
 	if plr and plr.Character then
-		for _, o in ipairs(plr.Character:GetChildren()) do
-			if o:IsA("Tool") then add(o.Name) end
-		end
+		for _,o in ipairs(plr.Character:GetChildren()) do if o:IsA("Tool") then add(o.Name) end end
 	end
 	if plr then
 		local bp = plr:FindFirstChild("Backpack")
-		if bp then
-			for _, o in ipairs(bp:GetChildren()) do
-				if o:IsA("Tool") then add(o.Name) end
-			end
-		end
+		if bp then for _,o in ipairs(bp:GetChildren()) do if o:IsA("Tool") then add(o.Name) end end end
 	end
 	return t
 end
 
 --[[
-  LOOT PROFISSIONAL — SEM CLONE
-  1) /revistar no chat (server)
-  2) revisar_function
-  3) outros remotes de loot/item
-  4) cliques reais na UI Revistamento (o jogo grava no server)
-  Clone foi REMOVIDO de proposito.
+  FLUXO PROFISSIONAL:
+  1. Garante distancia (TP leve 1x se precisar)
+  2. Manda /revistar UMA vez (+ retry se UI nao abrir)
+  3. ESPERA a tela Revistamento
+  4. Clica cada slot de item
+  5. Finalizar
+  SEM spam de 50 remotes (isso tambem flag)
 ]]
-local function pegarTudo(target)
+local function pegarTudo(target, fromKill)
 	if looting and tick() < lootLockUntil then
-		notify("Aguarde...")
 		return
 	end
 	if not target then return end
+
+	-- anti ban: cooldown entre kills
+	if fromKill then
+		if tick() - lastKillLoot < (CFG.KillCooldown or 12) then
+			notify("Cooldown loot ("..math.ceil((CFG.KillCooldown or 12)-(tick()-lastKillLoot)).."s)")
+			return
+		end
+		lastKillLoot = tick()
+	end
+
 	looting = true
-	lootLockUntil = tick() + 12
+	lootLockUntil = tick() + 15
 
 	task.spawn(function()
 		pcall(function()
 			local nome = target.Name
-			local armas = listArmas(target)
-			notify("Revistar server: "..nome)
-			print("[Tigrinho] SERVER loot →", nome, "armas:", table.concat(armas, ", "))
+			print("[Tigrinho] revistar UI →", nome)
 
-			-- 1) CHAT (server processa)
-			enviarChat("/revistar "..nome)
-			task.wait(0.3)
-			enviarChat("/revistar "..nome)
+			-- distancia: so TP se longe
+			local root = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+			local tr = target.Character and (target.Character:FindFirstChild("HumanoidRootPart") or target.Character:FindFirstChild("Head"))
+			if root and tr then
+				local dist = (root.Position - tr.Position).Magnitude
+				if dist > 14 then
+					softTP(tr.Position + Vector3.new(0, 2.5, 0))
+					task.wait(0.35) -- deixa o server aceitar a posicao
+				end
+			end
 
-			-- 2) Remote oficial
+			-- chat (principal)
+			enviarChat("/revistar "..nome)
+			task.wait(0.5)
+
+			-- remote oficial (poucas tentativas, sem spam)
 			local remote
 			pcall(function()
 				remote = RS.shared and RS.shared.Eventos and RS.shared.Eventos.revisar_function
@@ -726,115 +709,100 @@ local function pegarTudo(target)
 			if remote then
 				pcall(function() remote:InvokeServer(target) end)
 				pcall(function() remote:InvokeServer(nome) end)
-				pcall(function() remote:InvokeServer(target.Character) end)
-				pcall(function() remote:InvokeServer(target.UserId) end)
-				pcall(function() remote:InvokeServer() end)
-				for _, a in ipairs(armas) do
-					pcall(function() remote:InvokeServer(a) end)
-					pcall(function() remote:InvokeServer(target, a) end)
-					pcall(function() remote:InvokeServer(nome, a) end)
-					pcall(function() remote:InvokeServer(a, true) end)
-				end
 			end
 
-			-- 3) Varredura de remotes (so Fire/Invoke server)
-			for _, rem in ipairs(RS:GetDescendants()) do
-				if rem:IsA("RemoteEvent") or rem:IsA("RemoteFunction") then
-					local n = string.lower(rem.Name)
-					if string.find(n,"revis") or string.find(n,"loot") or string.find(n,"pegar")
-						or string.find(n,"take") or string.find(n,"item") or string.find(n,"roub")
-						or string.find(n,"steal") or string.find(n,"invent") or string.find(n,"weapon")
-						or string.find(n,"arma") or string.find(n,"give") or string.find(n,"transfer") then
-						local payloads = {
-							{target}, {nome}, {target.Character}, {target.UserId},
-							{true}, {"all"}, {"tudo"},
-						}
-						for _, a in ipairs(armas) do
-							table.insert(payloads, {a})
-							table.insert(payloads, {target, a})
-							table.insert(payloads, {nome, a})
-							table.insert(payloads, {a, true})
+			-- ESPERA a tela aparecer (ate ~6s)
+			local window
+			for i = 1, 50 do
+				window = getWindow()
+				if window then break end
+				-- retry chat 1x no meio
+				if i == 15 then
+					enviarChat("/revistar "..nome)
+				end
+				task.wait(0.12)
+			end
+
+			if not window then
+				notify("Tela de revistar nao abriu")
+				print("[Tigrinho] UI nao abriu")
+				looting = false
+				return
+			end
+
+			notify("Tela aberta — pegando itens")
+			print("[Tigrinho] UI aberta, clicando")
+
+			-- clica itens enquanto a tela existir
+			local t0 = tick()
+			while tick() - t0 < 8 do
+				local win = getWindow()
+				if not win then break end
+
+				for _, o in ipairs(win:GetDescendants()) do
+					if (o:IsA("TextButton") or o:IsA("ImageButton")) and o.Visible then
+						local t = string.lower(tostring(o.Text or ""))
+						if not string.find(t,"finalizar")
+							and not string.find(t,"fechar")
+							and not string.find(t,"cancel") then
+							clickGui(o)
+							task.wait(0.05)
 						end
-						for _, args in ipairs(payloads) do
-							pcall(function()
-								if rem:IsA("RemoteEvent") then
-									rem:FireServer(table.unpack(args))
-								else
-									rem:InvokeServer(table.unpack(args))
-								end
-							end)
+					elseif o:IsA("TextLabel") and isArmaName(o.Text) then
+						local host = o:FindFirstAncestorWhichIsA("TextButton")
+							or o:FindFirstAncestorWhichIsA("ImageButton")
+						if host then
+							clickGui(host)
+							task.wait(0.05)
 						end
 					end
 				end
-			end
-
-			-- 4) UI do jogo (clique = server grava inventário)
-			task.wait(0.45)
-			local window
-			for _ = 1, 40 do
-				window = getWindow()
-				if window then break end
 				task.wait(0.1)
 			end
 
-			if window then
-				print("[Tigrinho] UI Revistamento aberta — clicando slots (server)")
-				for pass = 1, 12 do
-					local win = getWindow()
-					if not win then break end
-					for _, o in ipairs(win:GetDescendants()) do
-						if (o:IsA("TextButton") or o:IsA("ImageButton")) and o.Visible then
-							local t = string.lower(tostring(o.Text or ""))
-							if not string.find(t,"finalizar") and not string.find(t,"fechar")
-								and not string.find(t,"salvar") and not string.find(t,"cancel") then
-								clickGui(o)
-								task.wait(0.04)
-							end
-						end
-						-- label com nome de arma → clica o botao pai
-						if o:IsA("TextLabel") and isArmaName(o.Text) then
-							local host = o:FindFirstAncestorWhichIsA("TextButton")
-								or o:FindFirstAncestorWhichIsA("ImageButton")
-							if host then
-								clickGui(host)
-								task.wait(0.04)
-							end
-						end
-					end
-					task.wait(0.06)
-				end
-				local fin = findFinalizar()
-				if fin then
-					clickGui(fin)
-					task.wait(0.08)
-					clickGui(fin)
-				end
-			else
-				notify("UI nao abriu — so chat/remote")
-				print("[Tigrinho] UI nao abriu")
+			-- Finalizar
+			task.wait(0.15)
+			local fin = findFinalizar()
+			if fin then
+				clickGui(fin)
+				task.wait(0.1)
+				clickGui(fin)
 			end
+
+			notify("Revistamento concluido")
 		end)
 		looting = false
-		notify("Loot server finalizado")
 	end)
-	task.delay(13, function() looting = false end)
+	task.delay(16, function() looting = false end)
 end
 
 revBtn.MouseButton1Click:Connect(function()
 	local t = getNearestPlayer()
 	if not t then notify("Ninguem perto") return end
-	pegarTudo(t)
+	pegarTudo(t, false)
 end)
 
+-- KILL: cooldown + TP leve + UI
 local function onDeath(plr, char)
 	if not CFG.TPKill then return end
 	if plr ~= myVictim then return end
-	if tick() - myVictimAt > 25 then return end
+	if tick() - myVictimAt > 20 then return end
+
+	-- anti ban cooldown
+	if tick() - lastKillLoot < (CFG.KillCooldown or 12) then
+		notify("Kill loot em cooldown")
+		myVictim = nil
+		return
+	end
+
 	local r = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Head")
 	if not r then return end
-	lockTP(r.Position + Vector3.new(0,3,0), 5)
-	notify("TP "..plr.Name)
-	task.delay(0.60, function() pegarTudo(plr) end)
+
+	-- TP leve 1x (sem lock)
+	softTP(r.Position + Vector3.new(0, 2.5, 0))
+	task.delay(0.55, function()
+		pegarTudo(plr, true)
+	end)
 	myVictim = nil
 end
 
@@ -932,7 +900,7 @@ RunService.Heartbeat:Connect(function()
 	if not char then return end
 	for _,v in ipairs(char:GetDescendants()) do
 		local n = string.lower(v.Name)
-		if string.find(n,"stamina") or string.find(n,"energy") or string.find(n,"folego") then
+		if string.find(n,"stamina") or string.find(n,"energy") then
 			if v:IsA("NumberValue") or v:IsA("IntValue") then pcall(function() v.Value=100 end) end
 		end
 	end
@@ -1032,29 +1000,25 @@ local function updESP(plr)
 		c.lb.TextColor3 = CFG.ESPColor
 	elseif c.info then c.info:Destroy() c.info=nil c.lb=nil end
 
-	-- SO ARMAS, max 3, GUI pequena
 	if CFG.Tool then
 		local armas = listArmas(plr)
 		local show = {}
-		for i = 1, math.min(3, #armas) do
-			table.insert(show, armas[i])
-		end
+		for i=1, math.min(3,#armas) do table.insert(show, armas[i]) end
 		if not c.feet or not c.feet.Parent then
 			local bb = Instance.new("BillboardGui")
 			bb.Adornee = root
-			bb.Size = UDim2.new(0, 90, 0, 28)
-			bb.StudsOffset = Vector3.new(0, -2.3, 0)
+			bb.Size = UDim2.new(0,90,0,28)
+			bb.StudsOffset = Vector3.new(0,-2.3,0)
 			bb.AlwaysOnTop = true
 			bb.Parent = WS
 			local list = Instance.new("TextLabel")
 			list.Size = UDim2.new(1,0,1,0)
 			list.BackgroundTransparency = 0.5
 			list.BackgroundColor3 = Color3.fromRGB(0,0,0)
-			list.TextColor3 = Color3.fromRGB(255, 200, 120)
+			list.TextColor3 = Color3.fromRGB(255,200,120)
 			list.Font = Enum.Font.GothamBold
 			list.TextSize = 8
 			list.TextXAlignment = Enum.TextXAlignment.Center
-			list.TextYAlignment = Enum.TextYAlignment.Center
 			list.TextWrapped = true
 			list.Parent = bb
 			Instance.new("UICorner", list).CornerRadius = UDim.new(0,4)
@@ -1062,10 +1026,9 @@ local function updESP(plr)
 		end
 		if #show > 0 then
 			c.feetList.Text = table.concat(show, "\n")
-			c.feet.Size = UDim2.new(0, 90, 0, 8 + #show * 10)
+			c.feet.Size = UDim2.new(0,90,0,8+#show*10)
 			c.feet.Enabled = true
 		else
-			c.feetList.Text = ""
 			c.feet.Enabled = false
 		end
 		c.feet.Adornee = root
@@ -1094,7 +1057,8 @@ local function openTab(name)
 		y = rowToggle(content,"Silent Aim",y,CFG.Silent,function(v) CFG.Silent=v end)
 		y = rowToggle(content,"Sticky Aim",y,CFG.StickyAim,function(v) CFG.StickyAim=v end)
 		y = rowToggle(content,"Triggerbot",y,CFG.TriggerBot,function(v) CFG.TriggerBot=v end)
-		y = rowToggle(content,"TP + Loot kill (0.6s)",y,CFG.TPKill,function(v) CFG.TPKill=v end)
+		y = rowToggle(content,"TP + Loot kill (seguro)",y,CFG.TPKill,function(v) CFG.TPKill=v end)
+		y = rowSlider(content,"Cooldown kill loot (s)",y,CFG.KillCooldown,5,30,function(v) CFG.KillCooldown=v end)
 		y = rowToggle(content,"Fly",y,CFG.Fly,function(v) setFly(v) end)
 		y = rowSlider(content,"Velocidade Fly",y,CFG.FlySpeed,20,500,function(v) CFG.FlySpeed=v end)
 	elseif name == "🔫 Arma" then
@@ -1164,7 +1128,6 @@ UIS.InputEnded:Connect(function(i)
 end)
 
 LP.CharacterAdded:Connect(function()
-	clearTPHold()
 	if flyBV then flyBV:Destroy() flyBV=nil end
 	if nConn then nConn:Disconnect() nConn=nil end
 	task.wait(0.4)
@@ -1193,7 +1156,7 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
-print("[Tigrinho] loot server only + 3 armas ESP")
+print("[Tigrinho] UI revistar + TP seguro")
 end
 
 print("[Tigrinho] senha: tigrinho")
