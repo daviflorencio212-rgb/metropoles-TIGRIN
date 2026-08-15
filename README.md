@@ -1,4 +1,4 @@
---[[ TIGRINHO - armas conhecidas + munição + combate ]]
+--[[ TIGRINHO - aim lead + munição + TP nome + save config ]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -9,6 +9,7 @@ local WS = game:GetService("Workspace")
 local StarterGui = game:GetService("StarterGui")
 local TextChat = game:GetService("TextChatService")
 local RS = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
 local VIM = nil
 pcall(function() VIM = game:GetService("VirtualInputManager") end)
 
@@ -16,42 +17,77 @@ local LP = Players.LocalPlayer
 local Cam = WS.CurrentCamera
 local mobile = UIS.TouchEnabled
 
--- ARMAS QUE VOCE QUER PEGAR (prioridade no loot)
 local ARMAS = {
-	"UMP45", "FAL", "M9 Beretta", "Desert Eagle", "Revolver", "G17", "Draco",
-	"g18 tec9", "G18", "Tec9", "tec9", "shorty", "Shorty", "aa-12", "AA-12",
-	"spas-12", "SPAS-12", "ar15", "AR15", "AR-15", "mp7", "MP7", "famas", "FAMAS",
-	"p90", "P90", "mac-10", "MAC-10", "Mac-10", "m4", "M4", "scar", "SCAR",
-	"thompsom", "Thompson", "thompson", "ak47", "AK47", "AK-47", "ak47-m", "AK47-M",
-	"awm", "AWM", "ak-urso", "AK-Urso", "AK Urso",
-	-- itens comuns tambem
-	"Celular", "celular", "Radio", "Rádio", "Dinheiro", "Lockpick", "Bandagem",
+	"UMP45","FAL","M9 Beretta","Desert Eagle","Revolver","G17","Draco",
+	"g18 tec9","G18","Tec9","shorty","aa-12","spas-12","ar15","mp7","famas",
+	"p90","mac-10","m4","scar","thompsom","Thompson","ak47","ak47-m","awm","ak-urso",
+	"Celular","Radio","Rádio",
 }
 
 local function isArmaConhecida(texto)
 	local low = string.lower(tostring(texto or ""))
 	for _, a in ipairs(ARMAS) do
-		if string.find(low, string.lower(a), 1, true) then
-			return true
-		end
+		if string.find(low, string.lower(a), 1, true) then return true end
 	end
 	return false
 end
 
 local CFG = {
 	Aimbot = false, Silent = false, ShowFOV = false,
-	FOV = 120, Smooth = 0.12, MaxDist = 150,
+	FOV = 120, Smooth = 0.08, MaxDist = 150,
+	Prediction = 0.12, -- lead (segundos de previsão)
 	ESP = false, HL = true, Name = true, Dist = true, Tool = true,
 	ESPDist = 500, ESPColor = Color3.fromRGB(255, 145, 40),
 	Noclip = false, Fly = false, FlySpeed = 60,
 	Speed = false, SpeedVal = 24, Jump = false, JumpVal = 60,
 	Fullbright = false, TPKill = false, AutoRevistar = true, QuitDeath = false,
-	InfAmmo = false, NoFall = false, InfJump = false,
-	AntiAFK = false, XRay = false,
-	TriggerBot = false, RapidFire = false, NoRecoil = false,
-	AutoReload = false, HeadHitbox = false, HitboxSize = 5,
-	StickyAim = false, WallCheck = false,
+	InfAmmo = false, InfJump = false, AntiAFK = false, XRay = false,
+	TriggerBot = false, NoRecoil = false, AutoReload = false,
+	HeadHitbox = false, HitboxSize = 5, StickyAim = false,
 }
+
+local CONFIG_FILE = "TigrinhoConfig.json"
+
+local function saveConfig()
+	local ok = pcall(function()
+		local data = HttpService:JSONEncode(CFG)
+		if writefile then
+			writefile(CONFIG_FILE, data)
+		elseif syn and syn.write_file then
+			syn.write_file(CONFIG_FILE, data)
+		end
+	end)
+	if ok then
+		pcall(function()
+			StarterGui:SetCore("SendNotification", {Title="Tigrinho", Text="Config salva!", Duration=2})
+		end)
+	else
+		pcall(function()
+			StarterGui:SetCore("SendNotification", {Title="Tigrinho", Text="Nao deu pra salvar (executor)", Duration=2})
+		end)
+	end
+end
+
+local function loadConfig()
+	local ok, data = pcall(function()
+		if isfile and isfile(CONFIG_FILE) then
+			return readfile(CONFIG_FILE)
+		elseif syn and syn.read_file then
+			return syn.read_file(CONFIG_FILE)
+		end
+		return nil
+	end)
+	if ok and data then
+		local decoded = HttpService:JSONDecode(data)
+		for k, v in pairs(decoded) do
+			if CFG[k] ~= nil then CFG[k] = v end
+		end
+		pcall(function()
+			StarterGui:SetCore("SendNotification", {Title="Tigrinho", Text="Config carregada!", Duration=2})
+		end)
+	end
+end
+pcall(loadConfig)
 
 local holdAim, menuOn = false, true
 local drag, d0, p0 = false, nil, nil
@@ -59,6 +95,7 @@ local nConn, flyBV, espCache = nil, nil, {}
 local looting = false
 local myVictim, myVictimAt = nil, 0
 local lastTPPos = nil
+local hitboxParts = {}
 
 local C = {
 	Bg = Color3.fromRGB(16, 15, 14), Side = Color3.fromRGB(22, 20, 18),
@@ -106,7 +143,7 @@ fovS.Color = C.Accent
 fovS.Thickness = 1.5
 fovS.Transparency = 0.4
 
-local W, H = mobile and 350 or 520, mobile and 440 or 420
+local W, H = mobile and 350 or 520, mobile and 440 or 430
 local main = Instance.new("Frame")
 main.Size = UDim2.new(0, W, 0, H)
 main.Position = UDim2.new(0.5, -W/2, 0.5, -H/2)
@@ -116,7 +153,6 @@ main.Active = true
 main.ClipsDescendants = true
 main.Parent = gui
 Instance.new("UICorner", main).CornerRadius = UDim.new(0, 18)
-Instance.new("UIStroke", main).Color = Color3.fromRGB(60, 45, 30)
 
 local top = Instance.new("Frame")
 top.Size = UDim2.new(1, 0, 0, 42)
@@ -212,7 +248,7 @@ local tabs = {}
 local function addTab(name, order)
 	if mobile then
 		local b = Instance.new("TextButton")
-		b.Size = UDim2.new(0, 70, 0, 30)
+		b.Size = UDim2.new(0, 68, 0, 30)
 		b.BackgroundColor3 = C.Card
 		b.Text = name
 		b.Font = Enum.Font.GothamMedium
@@ -347,6 +383,58 @@ local function rowSlider(parent, text, y, def, min, max, cb)
 	return y + 54
 end
 
+local function rowInput(parent, placeholder, y, callback)
+	local f = Instance.new("Frame")
+	f.Size = UDim2.new(1, -2, 0, 36)
+	f.Position = UDim2.new(0, 1, 0, y)
+	f.BackgroundColor3 = C.Card
+	f.BorderSizePixel = 0
+	f.Parent = parent
+	Instance.new("UICorner", f).CornerRadius = UDim.new(0, 10)
+	local box = Instance.new("TextBox")
+	box.Size = UDim2.new(0.62, -8, 1, -8)
+	box.Position = UDim2.new(0, 8, 0, 4)
+	box.BackgroundColor3 = C.Bar
+	box.Text = ""
+	box.PlaceholderText = placeholder
+	box.TextColor3 = C.Text
+	box.PlaceholderColor3 = C.Dim
+	box.Font = Enum.Font.Gotham
+	box.TextSize = 12
+	box.ClearTextOnFocus = false
+	box.Parent = f
+	Instance.new("UICorner", box).CornerRadius = UDim.new(0, 6)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(0.32, -8, 1, -8)
+	btn.Position = UDim2.new(0.66, 0, 0, 4)
+	btn.BackgroundColor3 = C.Accent
+	btn.Text = "TP"
+	btn.Font = Enum.Font.GothamBold
+	btn.TextSize = 12
+	btn.TextColor3 = Color3.new(1,1,1)
+	btn.Parent = f
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+	btn.MouseButton1Click:Connect(function()
+		callback(box.Text)
+	end)
+	return y + 42
+end
+
+local function rowButton(parent, text, y, cb)
+	local b = Instance.new("TextButton")
+	b.Size = UDim2.new(1, -2, 0, 34)
+	b.Position = UDim2.new(0, 1, 0, y)
+	b.BackgroundColor3 = C.Accent
+	b.Text = text
+	b.Font = Enum.Font.GothamBold
+	b.TextSize = 13
+	b.TextColor3 = Color3.new(1,1,1)
+	b.Parent = parent
+	Instance.new("UICorner", b).CornerRadius = UDim.new(0, 10)
+	b.MouseButton1Click:Connect(cb)
+	return y + 40
+end
+
 -- CORE
 local function valid(char)
 	if not char or char == LP.Character then return false end
@@ -360,21 +448,45 @@ local function sDist(pos)
 	return (Vector2.new(sp.X, sp.Y) - Cam.ViewportSize/2).Magnitude
 end
 
+-- posição prevista (lead) — resolve tiro quando o cara anda
+local function predictedPos(part)
+	if not part then return nil end
+	local pos = part.Position
+	local vel = Vector3.zero
+	pcall(function()
+		vel = part.AssemblyLinearVelocity
+	end)
+	if vel.Magnitude < 0.5 then
+		local parent = part.Parent
+		local root = parent and parent:FindFirstChild("HumanoidRootPart")
+		if root then
+			pcall(function() vel = root.AssemblyLinearVelocity end)
+		end
+	end
+	-- previsão em segundos (CFG.Prediction)
+	return pos + vel * CFG.Prediction
+end
+
 local function findTarget(noFov)
 	local lim = noFov and 999999 or CFG.FOV
-	local best, bd, bestP = nil, lim, nil
+	local best, bd, bestP, bestPart = nil, lim, nil, nil
 	local root = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-	if not root then return nil, nil end
+	if not root then return nil, nil, nil end
 	for _, plr in ipairs(Players:GetPlayers()) do
 		if plr ~= LP and plr.Character and valid(plr.Character) then
 			local p = plr.Character:FindFirstChild("Head") or plr.Character:FindFirstChild("HumanoidRootPart")
 			if p and (p.Position - root.Position).Magnitude <= CFG.MaxDist * 8 then
 				local d = sDist(p.Position)
-				if d < bd then bd = d best = p bestP = plr end
+				if d < bd then
+					bd = d
+					best = predictedPos(p) -- mira no ponto futuro
+					bestPart = p
+					bestP = plr
+				end
 			end
 		end
 	end
-	return best, bestP
+	return best, bestP, bestPart
 end
 
 local function getPlayerNoFOV()
@@ -393,11 +505,39 @@ local function getPlayerNoFOV()
 	return best
 end
 
-local function aim(part)
-	if not part then return end
-	local strength = CFG.Silent and 0.97 or math.clamp(1 - CFG.Smooth, 0.45, 0.98)
-	if CFG.StickyAim then strength = math.max(strength, 0.85) end
-	Cam.CFrame = Cam.CFrame:Lerp(CFrame.lookAt(Cam.CFrame.Position, part.Position), strength)
+local function aimAtPos(pos)
+	if not pos then return end
+	local strength = CFG.Silent and 0.99 or math.clamp(1 - CFG.Smooth, 0.5, 0.98)
+	if CFG.StickyAim then strength = math.max(strength, 0.88) end
+	Cam.CFrame = Cam.CFrame:Lerp(CFrame.lookAt(Cam.CFrame.Position, pos), strength)
+end
+
+-- TP por nome
+local function tpParaNome(nome)
+	nome = tostring(nome or ""):gsub("^%s+",""):gsub("%s+$","")
+	if nome == "" then notify("Digite o nome") return end
+	local low = string.lower(nome)
+	local alvo = nil
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= LP then
+			if string.lower(plr.Name) == low
+				or string.lower(plr.DisplayName) == low
+				or string.find(string.lower(plr.Name), low, 1, true)
+				or string.find(string.lower(plr.DisplayName), low, 1, true) then
+				alvo = plr
+				break
+			end
+		end
+	end
+	if not alvo or not alvo.Character then
+		notify("Jogador nao encontrado")
+		return
+	end
+	local r = alvo.Character:FindFirstChild("HumanoidRootPart") or alvo.Character:FindFirstChild("Head")
+	local meu = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+	if not r or not meu then notify("Sem personagem") return end
+	meu.CFrame = CFrame.new(r.Position + Vector3.new(0, 3, 0))
+	notify("TP → " .. alvo.Name)
 end
 
 local function listAllItems(plr)
@@ -483,7 +623,7 @@ local function getItemButtons(window)
 			local t = tostring(o.Text or "")
 			local low = string.lower(t)
 			if not string.find(low, "finalizar") and not string.find(low, "fechar")
-				and not string.find(low, "salvar") and o.AbsoluteSize.X > 5 then
+				and o.AbsoluteSize.X > 5 then
 				if isArmaConhecida(t) then
 					table.insert(prioritarios, o)
 				else
@@ -491,10 +631,8 @@ local function getItemButtons(window)
 				end
 			end
 		end
-		-- labels com nome de arma → clicar no pai
 		if o:IsA("TextLabel") and isArmaConhecida(o.Text) then
-			local host = o:FindFirstAncestorWhichIsA("TextButton")
-				or o:FindFirstAncestorWhichIsA("ImageButton")
+			local host = o:FindFirstAncestorWhichIsA("TextButton") or o:FindFirstAncestorWhichIsA("ImageButton")
 			if host then table.insert(prioritarios, host) end
 		end
 	end
@@ -518,7 +656,6 @@ local function enviarRevistarChat(nome)
 				if g then g:SendAsync("/revistar " .. nome) end
 			end
 		end)
-		pcall(function() LP:Chat("/revistar " .. nome) end)
 	end)
 end
 
@@ -537,26 +674,12 @@ local function forceTP(pos)
 	end)
 end
 
--- LOOT com lista de armas
 local function pegarTudo(target)
 	if looting or not target then return end
 	looting = true
 	task.spawn(function()
-		local itemNames = listAllItems(target)
-		-- junta com lista conhecida
-		local todos = {}
-		local seen = {}
-		for _, n in ipairs(itemNames) do
-			if not seen[n] then seen[n] = true table.insert(todos, n) end
-		end
-		for _, n in ipairs(ARMAS) do
-			if not seen[n] then seen[n] = true table.insert(todos, n) end
-		end
-		print("[Tigrinho] Loot alvo:", target.Name, "detectados:", table.concat(itemNames, ", "))
 		notify("Revistar: " .. target.Name)
-
 		enviarRevistarChat(target.Name)
-
 		local remote
 		pcall(function()
 			remote = RS.shared and RS.shared.Eventos and RS.shared.Eventos.revisar_function
@@ -565,40 +688,11 @@ local function pegarTudo(target)
 		if remote then
 			pcall(function() remote:InvokeServer(target) end)
 			pcall(function() remote:InvokeServer(target.Name) end)
-			pcall(function() remote:InvokeServer(target.Character) end)
-			pcall(function() remote:InvokeServer() end)
-			-- tenta cada arma conhecida
 			for _, arma in ipairs(ARMAS) do
 				pcall(function() remote:InvokeServer(arma) end)
 				pcall(function() remote:InvokeServer(target, arma) end)
-				pcall(function() remote:InvokeServer(target.Name, arma) end)
-				pcall(function() remote:InvokeServer(arma, true) end)
 			end
 		end
-
-		-- remotes genericos de loot
-		for _, rem in ipairs(RS:GetDescendants()) do
-			if rem:IsA("RemoteEvent") or rem:IsA("RemoteFunction") then
-				local n = string.lower(rem.Name)
-				if string.find(n, "pegar") or string.find(n, "take") or string.find(n, "item")
-					or string.find(n, "loot") or string.find(n, "roub") or string.find(n, "weapon")
-					or string.find(n, "arma") or string.find(n, "invent") then
-					for _, arma in ipairs(ARMAS) do
-						pcall(function()
-							if rem:IsA("RemoteEvent") then
-								rem:FireServer(arma)
-								rem:FireServer(target, arma)
-								rem:FireServer(arma, true)
-							else
-								rem:InvokeServer(arma)
-								rem:InvokeServer(target, arma)
-							end
-						end)
-					end
-				end
-			end
-		end
-
 		task.wait(0.7)
 		local window
 		for _ = 1, 70 do
@@ -606,31 +700,19 @@ local function pegarTudo(target)
 			if window then break end
 			task.wait(0.12)
 		end
-
 		if window then
-			for pass = 1, 18 do
+			for pass = 1, 15 do
 				local win = getWindow()
 				if not win then break end
 				local prio, outros = getItemButtons(win)
-				-- primeiro as ARMAS
-				for _, btn in ipairs(prio) do
-					clickGui(btn)
-					task.wait(0.06)
-					clickGui(btn)
-					task.wait(0.04)
-				end
-				-- depois o resto
-				for _, btn in ipairs(outros) do
-					clickGui(btn)
-					task.wait(0.04)
-				end
+				for _, btn in ipairs(prio) do clickGui(btn) task.wait(0.05) end
+				for _, btn in ipairs(outros) do clickGui(btn) task.wait(0.04) end
 				task.wait(0.08)
 			end
 			local fin = findFinalizar()
-			if fin then clickGui(fin) task.wait(0.1) clickGui(fin) end
+			if fin then clickGui(fin) end
 		end
-
-		notify("Loot finalizado")
+		notify("Loot OK")
 		looting = false
 	end)
 end
@@ -648,7 +730,7 @@ local function onDeath(plr, char)
 	local r = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Head")
 	if not r then return end
 	forceTP(r.Position + Vector3.new(0, 3, 0))
-	notify("TP: " .. plr.Name .. " | loot em 2s")
+	notify("TP: " .. plr.Name)
 	task.delay(2, function()
 		local root = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
 		if root and lastTPPos then root.CFrame = CFrame.new(lastTPPos) end
@@ -700,7 +782,6 @@ local function setFly(on)
 	if not root then return end
 	flyBV = Instance.new("BodyVelocity")
 	flyBV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-	flyBV.Velocity = Vector3.zero
 	flyBV.Parent = root
 end
 
@@ -723,12 +804,6 @@ RunService.RenderStepped:Connect(function()
 	if UIS:IsKeyDown(Enum.KeyCode.D) then dir = dir + cf.RightVector end
 	if UIS:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0,1,0) end
 	if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then dir = dir - Vector3.new(0,1,0) end
-	if mobile then
-		local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-		if hum and hum.MoveDirection.Magnitude > 0.05 then
-			dir = dir + Vector3.new(hum.MoveDirection.X, 0, hum.MoveDirection.Z)
-		end
-	end
 	flyBV.Velocity = dir.Magnitude > 0 and dir.Unit * CFG.FlySpeed or Vector3.zero
 end)
 
@@ -739,113 +814,86 @@ local function applySJ()
 	hum.JumpPower = CFG.Jump and CFG.JumpVal or 50
 end
 
--- MUNICAO INFINITA (mais agressiva)
+-- MUNICAO FORTE
 local function forcarMunicao(tool)
 	if not tool then return end
-	-- Values
 	for _, v in ipairs(tool:GetDescendants()) do
 		local n = string.lower(v.Name)
-		local ammoName = string.find(n, "ammo") or string.find(n, "clip") or string.find(n, "bullet")
-			or string.find(n, "muni") or string.find(n, "mag") or string.find(n, "cartucho")
-			or string.find(n, "round") or string.find(n, "balas") or string.find(n, "charge")
-		if ammoName then
-			if v:IsA("IntValue") or v:IsA("NumberValue") then
-				pcall(function() v.Value = 9999 end)
-			elseif v:IsA("StringValue") then
-				pcall(function() v.Value = "9999" end)
-			end
+		local hit = string.find(n,"ammo") or string.find(n,"clip") or string.find(n,"bullet")
+			or string.find(n,"muni") or string.find(n,"mag") or string.find(n,"cartucho")
+			or string.find(n,"round") or string.find(n,"balas") or string.find(n,"charge")
+			or string.find(n,"count") or string.find(n,"stock")
+		if hit then
+			if v:IsA("IntValue") or v:IsA("NumberValue") then pcall(function() v.Value = 9999 end) end
+			if v:IsA("StringValue") then pcall(function() v.Value = "9999" end) end
 		end
-		if v:IsA("BoolValue") and (string.find(n, "reload") or string.find(n, "empty")) then
+		if v:IsA("BoolValue") and (string.find(n,"reload") or string.find(n,"empty")) then
 			pcall(function() v.Value = false end)
 		end
 	end
-	-- Attributes
 	pcall(function()
 		for attr, val in pairs(tool:GetAttributes()) do
 			local n = string.lower(attr)
-			if string.find(n, "ammo") or string.find(n, "clip") or string.find(n, "bullet") or string.find(n, "muni") then
-				if typeof(val) == "number" then
-					tool:SetAttribute(attr, 9999)
-				end
+			if typeof(val) == "number" and (string.find(n,"ammo") or string.find(n,"clip") or string.find(n,"bullet") or string.find(n,"muni")) then
+				tool:SetAttribute(attr, 9999)
 			end
 		end
 	end)
-	-- filhos diretos comuns
-	for _, name in ipairs({"Ammo", "ammo", "Clip", "clip", "Magazine", "Bullets", "Municao", "Munição"}) do
-		local v = tool:FindFirstChild(name)
-		if v and (v:IsA("IntValue") or v:IsA("NumberValue")) then
-			pcall(function() v.Value = 9999 end)
-		end
+	for _, name in ipairs({"Ammo","ammo","Clip","clip","Magazine","Bullets","Municao","Munição","AmmoCount","CurrentAmmo"}) do
+		local v = tool:FindFirstChild(name, true)
+		if v and (v:IsA("IntValue") or v:IsA("NumberValue")) then pcall(function() v.Value = 9999 end) end
 	end
 end
 
 RunService.Heartbeat:Connect(function()
-	if not CFG.InfAmmo then return end
+	if not CFG.InfAmmo and not CFG.AutoReload then return end
 	local char = LP.Character
 	if not char then return end
 	local tool = char:FindFirstChildOfClass("Tool")
 	if tool then forcarMunicao(tool) end
 	local bp = LP:FindFirstChild("Backpack")
-	if bp then
+	if bp and CFG.InfAmmo then
 		for _, t in ipairs(bp:GetChildren()) do
 			if t:IsA("Tool") then forcarMunicao(t) end
 		end
 	end
 end)
 
--- Rapid fire / no recoil client (tenta)
 RunService.RenderStepped:Connect(function()
-	if not (CFG.RapidFire or CFG.NoRecoil or CFG.AutoReload) then return end
+	if not CFG.NoRecoil then return end
 	local tool = LP.Character and LP.Character:FindFirstChildOfClass("Tool")
 	if not tool then return end
-	if CFG.NoRecoil then
-		for _, v in ipairs(tool:GetDescendants()) do
-			local n = string.lower(v.Name)
-			if string.find(n, "recoil") or string.find(n, "spread") or string.find(n, "shake") then
-				if v:IsA("NumberValue") or v:IsA("IntValue") then
-					pcall(function() v.Value = 0 end)
-				end
-			end
+	for _, v in ipairs(tool:GetDescendants()) do
+		local n = string.lower(v.Name)
+		if (string.find(n,"recoil") or string.find(n,"spread") or string.find(n,"shake"))
+			and (v:IsA("NumberValue") or v:IsA("IntValue")) then
+			pcall(function() v.Value = 0 end)
 		end
-	end
-	if CFG.AutoReload then
-		forcarMunicao(tool)
 	end
 end)
 
--- Triggerbot: atira se tem alvo no FOV (simula click)
 local lastTrig = 0
 RunService.RenderStepped:Connect(function()
 	if not CFG.TriggerBot then return end
 	if tick() - lastTrig < 0.12 then return end
-	local part = findTarget(false)
-	if part then
+	local pos = findTarget(false)
+	if pos then
 		lastTrig = tick()
-		-- mouse click
 		pcall(function()
 			if VIM then
 				local vs = Cam.ViewportSize
-				local x, y = vs.X/2, vs.Y/2
-				VIM:SendMouseButtonEvent(x, y, 0, true, game, 1)
+				VIM:SendMouseButtonEvent(vs.X/2, vs.Y/2, 0, true, game, 1)
 				task.wait(0.03)
-				VIM:SendMouseButtonEvent(x, y, 0, false, game, 1)
+				VIM:SendMouseButtonEvent(vs.X/2, vs.Y/2, 0, false, game, 1)
 			end
 		end)
 	end
 end)
 
--- Hitbox cabeça (client visual/ajuda silent)
-local hitboxParts = {}
-local function clearHitboxes()
-	for _, p in pairs(hitboxParts) do
-		if p and p.Parent then p:Destroy() end
-	end
-	hitboxParts = {}
-end
-
 RunService.Heartbeat:Connect(function()
 	if not CFG.HeadHitbox then
-		if next(hitboxParts) then clearHitboxes() end
+		for _, p in pairs(hitboxParts) do if p and p.Parent then p:Destroy() end end
+		hitboxParts = {}
 		return
 	end
 	for _, plr in ipairs(Players:GetPlayers()) do
@@ -854,7 +902,6 @@ RunService.Heartbeat:Connect(function()
 			if head then
 				if not hitboxParts[plr.UserId] or not hitboxParts[plr.UserId].Parent then
 					local p = Instance.new("Part")
-					p.Name = "TigHB"
 					p.Shape = Enum.PartType.Ball
 					p.Size = Vector3.new(CFG.HitboxSize, CFG.HitboxSize, CFG.HitboxSize)
 					p.Transparency = 0.7
@@ -902,10 +949,7 @@ local function setXRay(on)
 				if p.Transparency < 0.5 then p.LocalTransparencyModifier = 0.55 end
 			else
 				local old = p:GetAttribute("TigTX")
-				if old ~= nil then
-					p.LocalTransparencyModifier = old
-					p:SetAttribute("TigTX", nil)
-				end
+				if old ~= nil then p.LocalTransparencyModifier = old p:SetAttribute("TigTX", nil) end
 			end
 		end
 	end
@@ -933,7 +977,6 @@ local function updESP(plr)
 	if not CFG.ESP or dist > CFG.ESPDist then clearE(plr.UserId) return end
 	if not espCache[plr.UserId] then espCache[plr.UserId] = {} end
 	local c = espCache[plr.UserId]
-
 	if CFG.HL and hum.Health > 0 then
 		if not c.hl or not c.hl.Parent then
 			local hl = Instance.new("Highlight")
@@ -949,7 +992,6 @@ local function updESP(plr)
 			c.hl.Adornee = char
 		end
 	elseif c.hl then c.hl:Destroy() c.hl = nil end
-
 	if head and (CFG.Name or CFG.Dist) and hum.Health > 0 then
 		if not c.info or not c.info.Parent then
 			local bb = Instance.new("BillboardGui")
@@ -972,9 +1014,7 @@ local function updESP(plr)
 		if CFG.Dist then txt = txt .. (txt ~= "" and " · " or "") .. math.floor(dist) .. "m" end
 		c.lb.Text = txt
 		c.lb.TextColor3 = CFG.ESPColor
-		c.info.Adornee = head
 	elseif c.info then c.info:Destroy() c.info = nil c.lb = nil end
-
 	if CFG.Tool and hum.Health > 0 then
 		local items = listAllItems(plr)
 		if not c.feet or not c.feet.Parent then
@@ -986,16 +1026,16 @@ local function updESP(plr)
 			bb.Parent = WS
 			local frame = Instance.new("Frame")
 			frame.Size = UDim2.new(1,0,1,0)
-			frame.BackgroundColor3 = Color3.fromRGB(10, 9, 8)
+			frame.BackgroundColor3 = Color3.fromRGB(10,9,8)
 			frame.BackgroundTransparency = 0.4
 			frame.BorderSizePixel = 0
 			frame.Parent = bb
 			Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 4)
 			local list = Instance.new("TextLabel")
-			list.Size = UDim2.new(1, -3, 1, -1)
-			list.Position = UDim2.new(0, 2, 0, 0)
+			list.Size = UDim2.new(1,-3,1,-1)
+			list.Position = UDim2.new(0,2,0,0)
 			list.BackgroundTransparency = 1
-			list.TextColor3 = Color3.fromRGB(230, 225, 215)
+			list.TextColor3 = Color3.fromRGB(230,225,215)
 			list.Font = Enum.Font.Gotham
 			list.TextSize = 8
 			list.TextXAlignment = Enum.TextXAlignment.Left
@@ -1026,8 +1066,12 @@ local function openTab(name)
 		y = rowSlider(content, "FOV", y, CFG.FOV, 30, 400, function(v)
 			CFG.FOV = v fovF.Size = UDim2.new(0, v*2, 0, v*2)
 		end)
-		y = rowSlider(content, "Distancia players", y, CFG.MaxDist, 20, 500, function(v) CFG.MaxDist = v end)
-		y = rowSlider(content, "Suavidade (menor = mais forte)", y, math.floor(CFG.Smooth*100), 2, 40, function(v) CFG.Smooth = v/100 end)
+		y = rowSlider(content, "Previsao movimento (lead)", y, math.floor(CFG.Prediction*100), 0, 35, function(v)
+			CFG.Prediction = v / 100
+		end)
+		y = rowSlider(content, "Suavidade (menor = mais forte)", y, math.floor(CFG.Smooth*100), 2, 40, function(v)
+			CFG.Smooth = v/100
+		end)
 		y = rowToggle(content, "Mostrar FOV", y, CFG.ShowFOV, function(v) CFG.ShowFOV = v fovF.Visible = v end)
 		y = rowToggle(content, "Aimbot", y, CFG.Aimbot, function(v) CFG.Aimbot = v end)
 		y = rowToggle(content, "Silent Aim", y, CFG.Silent, function(v) CFG.Silent = v end)
@@ -1039,15 +1083,9 @@ local function openTab(name)
 		y = rowSlider(content, "Velocidade Fly", y, CFG.FlySpeed, 20, 500, function(v) CFG.FlySpeed = v end)
 	elseif name == "🔫 Arma" then
 		y = rowToggle(content, "Municao infinita", y, CFG.InfAmmo, function(v) CFG.InfAmmo = v end)
-		y = rowToggle(content, "Auto reload (forca muni)", y, CFG.AutoReload, function(v) CFG.AutoReload = v end)
-		y = rowToggle(content, "Sem recoil (client)", y, CFG.NoRecoil, function(v) CFG.NoRecoil = v end)
-		y = rowToggle(content, "Hitbox cabeca", y, CFG.HeadHitbox, function(v)
-			CFG.HeadHitbox = v
-			if not v then
-				for _, p in pairs(hitboxParts) do if p and p.Parent then p:Destroy() end end
-				hitboxParts = {}
-			end
-		end)
+		y = rowToggle(content, "Auto reload", y, CFG.AutoReload, function(v) CFG.AutoReload = v end)
+		y = rowToggle(content, "Sem recoil", y, CFG.NoRecoil, function(v) CFG.NoRecoil = v end)
+		y = rowToggle(content, "Hitbox cabeca", y, CFG.HeadHitbox, function(v) CFG.HeadHitbox = v end)
 		y = rowSlider(content, "Tamanho hitbox", y, CFG.HitboxSize, 2, 20, function(v) CFG.HitboxSize = v end)
 	elseif name == "👁 ESP" then
 		y = rowToggle(content, "ESP ativo", y, CFG.ESP, function(v) CFG.ESP = v if not v then clearAll() end end)
@@ -1072,7 +1110,13 @@ local function openTab(name)
 				Lighting.Brightness = 1 Lighting.GlobalShadows = true
 			end
 		end)
-	else
+	else -- Config
+		y = rowInput(content, "Nome do jogador p/ TP", y, tpParaNome)
+		y = rowButton(content, "SALVAR CONFIG", y, saveConfig)
+		y = rowButton(content, "CARREGAR CONFIG", y, function()
+			loadConfig()
+			openTab("⚙ Config")
+		end)
 		y = rowToggle(content, "Anti AFK", y, CFG.AntiAFK, function(v) setAntiAFK(v) end)
 		y = rowToggle(content, "Sair ao morrer", y, CFG.QuitDeath, function(v) CFG.QuitDeath = v end)
 	end
@@ -1138,11 +1182,11 @@ RunService.RenderStepped:Connect(function()
 		else clearAll() end
 	end
 	if (CFG.Aimbot or CFG.Silent or CFG.StickyAim) and holdAim then
-		local part, plr = findTarget(CFG.Silent)
+		local pos, plr = findTarget(CFG.Silent)
 		if plr then markVictim(plr) end
-		if part then aim(part) end
+		if pos then aimAtPos(pos) end
 	end
 end)
 
-print("[Tigrinho] armas + munição + combate")
-notify("Armas mapeadas | munição reforçada")
+print("[Tigrinho] lead + save + TP nome")
+notify("Aim com previsao | Config salva")
